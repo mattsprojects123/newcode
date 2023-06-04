@@ -1,0 +1,112 @@
+import subprocess
+import time
+import cv2
+import numpy as np
+import RPi.GPIO as GPIO
+from picamera.array import PiRGBArray
+from picamera import PiCamera
+
+# Stepper motor configuration
+step_pin1 = 17
+dir_pin1 = 27
+step_pin2 = 23
+dir_pin2 = 24
+
+# OpenCV parameters
+scale_factor = 0.5
+
+# Initialize GPIO
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(step_pin1, GPIO.OUT)
+GPIO.setup(dir_pin1, GPIO.OUT)
+GPIO.setup(step_pin2, GPIO.OUT)
+GPIO.setup(dir_pin2, GPIO.OUT)
+
+# Set initial direction
+GPIO.output(dir_pin1, GPIO.LOW)  # Set direction to clockwise
+GPIO.output(dir_pin2, GPIO.LOW)  # Set direction to clockwise
+
+# Initialize PiCamera
+camera = PiCamera()
+camera.resolution = (640, 480)
+camera.framerate = 30
+raw_capture = PiRGBArray(camera, size=(640, 480))
+
+# Allow the camera to warm up
+time.sleep(2)
+
+# Loop to track motion
+for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
+    # Capture frame-by-frame
+    image = frame.array
+    
+    # Resize frame
+    image = cv2.resize(image, None, fx=scale_factor, fy=scale_factor)
+    
+    # Convert frame to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    
+    # Perform motion detection
+    # Assuming you have the motion detection logic implemented and the coordinates of motion as 'x' and 'y'
+    
+    # Calculate center point
+    frame_height, frame_width = gray.shape
+    center_x = frame_width // 2
+    center_y = frame_height // 2
+    
+    # Calculate error
+    error_x = center_x - x
+    error_y = center_y - y
+    
+    # Move stepper motors based on the error
+    # Adjust the speed and step_delay according to your stepper motor's specifications
+    step_delay = 0.001
+    steps_per_rev = 200
+    speed = 10
+    
+    if error_x > 0:
+        GPIO.output(dir_pin1, GPIO.HIGH)  # Set direction to counterclockwise
+        for _ in range(speed):
+            GPIO.output(step_pin1, GPIO.HIGH)
+            time.sleep(step_delay)
+            GPIO.output(step_pin1, GPIO.LOW)
+            time.sleep(step_delay)
+    
+    if error_x < 0:
+        GPIO.output(dir_pin1, GPIO.LOW)  # Set direction to clockwise
+        for _ in range(speed):
+            GPIO.output(step_pin1, GPIO.HIGH)
+            time.sleep(step_delay)
+            GPIO.output(step_pin1, GPIO.LOW)
+            time.sleep(step_delay)
+    
+    if error_y > 0:
+        GPIO.output(dir_pin2, GPIO.HIGH)  # Set direction to counterclockwise
+        for _ in range(speed):
+            GPIO.output(step_pin2, GPIO.HIGH)
+            time.sleep(step_delay)
+            GPIO.output(step_pin2, GPIO.LOW)
+            time.sleep(step_delay)
+    
+    if error_y < 0:
+        GPIO.output(dir_pin2, GPIO.LOW)  # Set direction to clockwise
+        for _ in range(speed):
+            GPIO.output(step_pin2, GPIO.HIGH)
+            time.sleep(step_delay)
+            GPIO.output(step_pin2, GPIO.LOW)
+            time.sleep(step_delay)
+    
+    # Clear the stream for the next frame
+    raw_capture.truncate(0)
+    
+    # Display the frame
+    cv2.imshow('Motion Tracking', image)
+    
+    # Exit if 'q' is pressed
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release resources
+cv2.destroyAllWindows()
+camera.close()
+GPIO.cleanup()
